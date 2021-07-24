@@ -1,0 +1,59 @@
+= UEFI Keys Generator
+:proj-name: efi-mkkeys
+:gh-name: jirutka/{proj-name}
+:version: 0.0.0
+
+{proj-name} is a simple script to easily generate self-signed UEFI keys (PK, KEK, and db) for Secure Boot, including `.esl` and `.auth` files, with a single command.
+
+
+== Requirements
+
+* http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html[POSIX-sh] compatible shell (e.g. Busybox ash, dash, ZSH, bash, …)
+* `cat`, `sed` (BSD, Busybox or GNU)
+* `openssl`
+* `cert-to-efi-sig-list`, `sign-efi-sig-list` from https://git.kernel.org/pub/scm/linux/kernel/git/jejb/efitools.git[efitools]
+* `uuidgen` from https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git[util-linux] or BSD
+
+
+== Installation
+
+=== On Alpine Linux
+
+Install package {proj-name} from the Alpine’s Edge community repository:
+
+[source, sh, subs="+attributes"]
+apk add {proj-name}
+
+
+=== From Tarball
+
+[source, sh, subs="+attributes"]
+wget https://github.com/{gh-name}/archive/v{version}/{proj-name}-{version}.tar.gz
+tar -xzf {proj-name}-{version}.tar.gz
+cd {proj-name}-{version}
+make install DESTDIR=/ prefix=/usr/local
+
+...or just download the link:https://raw.githubusercontent.com/{gh-name}/master/{proj-name}[{proj-name}] script directly.
+
+
+== Usage
+
+See the help section in link:{proj-name}#L3[{proj-name}] (or run `{proj-name} -h`).
+
+
+== See Also
+
+* https://github.com/jirutka/efi-mkuki[efi-mkuki] -- EFI Unified Kernel Image Maker
+
+
+== Resources
+
+* https://www.rodsbooks.com/efi-bootloaders/controlling-sb.html[Managing EFI Boot Loaders for Linux: Controlling Secure Boot] by Rod Smith
+* https://wiki.archlinux.org/title/Unified_Extensible_Firmware_Interface/Secure_Boot[Unified Extensible Firmware Interface/Secure Boot] on Arch Linux Wiki
+* https://wiki.gentoo.org/wiki/User:Sakaki/Sakaki%27s_EFI_Install_Guide/Configuring_Secure_Boot[Sakaki’s EFI Install Guide/Configuring Secure Boot] on Gentoo Wiki
+
+
+== License
+
+This project is licensed under http://opensource.org/licenses/MIT/[MIT License].
+For the full text of the license, see the link:LICENSE[LICENSE] file.

@@ -1,0 +1,131 @@
+#!/bin/sh
+#---help---
+# Usage: efi-mkkeys -s <subject> [-b <bits>] [-d <days>] [-e] [-o <dir>]
+#        efi-mkkeys [-h] [-V]
+#
+# Generate self-signed PK, KEK and db key for UEFI Secure Boot, including .esl
+# and .auth files, with a single command.
+#
+# Options:
+#   -s <subject>  Certificate subject; full DN or CN. If <subject> doesn't start
+#                 with "/", it will be rewritten to "/CN=<subject> (%s)/".
+#                 Placeholder "%s" will be replaced with the key type
+#                 (PK, KEK, or db). This option is required!
+#
+#   -b <bits>     RSA key size in bits; defaults to 2048. Change only if you know
+#                 that your system supports longer keys!
+#
+#   -d <days>     Validity period in days for all keys; defaults to 3650 (10 y).
+#
+#   -e            Encrypt all private keys with AES-256-CBC using a single
+#                 pass phrase (you will be prompted for it). The keys will be
+#                 written to disk unencrypted for a short moment before ESLs are
+#                 signed and then they will be encrypted with the provided pass.
+#
+#   -o <dir>      Output directory; defaults to the current directory.
+#
+#   -h            Show this message and exit.
+#
+#   -V            Print the program version and exit.
+#
+# Please report bugs at <https://github.com/jirutka/efi-mkkeys/issues>.
+#---help---
+set -eu
+
+if ( set -o pipefail 2>/dev/null ); then
+	set -o pipefail
+fi
+
+PROGNAME='efi-mkkeys'
+VERSION='0.0.0'
+
+help() {
+	sed -n '/^#---help---/,/^#---help---/p' "$0" | sed 's/^# \?//; 1d;$d;'
+}
+
+die() {
+	printf "$PROGNAME: %s\n" "$@" >&2
+	exit 2
+}
+
+# Defaults
+bits=2048
+days=3650
+encrypt=no
+outdir=
+passphrase=
+subj=
+
+while getopts ':b:d:eo:s:hV' OPT; do
+	case "$OPT" in
+		b) bits=$OPTARG;;
+		d) days=$OPTARG;;
+		e) encrypt=yes;;
+		o) outdir=$OPTARG;;
+		s) subj=$OPTARG;;
+		h) help; exit 0;;
+		V) echo "$PROGNAME $VERSION"; exit 0;;
+		\?) die "unknown option: -$OPTARG (see '$0 -h)";;
+	esac
+done
+shift $((OPTIND - 1))
+
+[ $# -eq 0 ] || die "unexpected arguments: $* (see '$0 -h')"
+[ "$subj" ] || die 'missing required option: -s'
+
+case "$subj" in
+	/*) ;;
+	*) subj="/CN=$subj (%s)/";;
+esac
+
+
+if [ "$encrypt" = yes ]; then
+	printf 'Enter PEM pass phrase for encrypting keys: '
+
+	# POSIX-compatible way to read password
+	stty -echo
+	trap 'stty echo' INT
+	read -r passphrase
+	stty echo
+	printf '\n'
+
+	[ "$passphrase" ] || die 'no pass phrase provided!'
+fi
+
+if [ "$outdir" ]; then
+	mkdir -p "$outdir"
+	cd "$outdir"
+fi
+
+guid=$(uuidgen)
+
+for name in PK KEK db; do
+	openssl req -new -x509 \
+		-newkey "rsa:$bits" -nodes -keyout "$name.key" \
+		-subj "$(printf "$subj" "$name")" -days "$days" -sha256 -out "$name.crt"
+
+	chmod 0600 *.key  # this should be by default, just to be sure...
+
+	# Some UEFI key managers require certificates in DER format.
+	openssl x509 -in "$name.crt" -out "$name.cer" -outform DER
+
+	cert-to-efi-sig-list -g "$guid" "$name.crt" "$name.esl"
+done
+
+timestamp=$(date +'%Y-%m-%d %H:%M:%S')
+sign-efi-sig-list -t "$timestamp" -k PK.key -c PK.crt PK PK.esl PK.auth >/dev/null
+sign-efi-sig-list -t "$timestamp" -a -k PK.key -c PK.crt KEK KEK.esl KEK.auth >/dev/null
+sign-efi-sig-list -t "$timestamp" -a -k KEK.key -c KEK.crt db db.esl db.auth >/dev/null
+
+[ "$encrypt" = yes ] && for name in PK KEK db; do
+	printf '%s\n' "$passphrase" \
+		| openssl rsa -aes256 -passout stdin -in "$name.key" -out "$name.key.enc"
+	mv "$name.key.enc" "$name.key"
+done
+
+cat <<'EOF'
+Done.
+
+TIP: Before modifying EFI variables, be sure to backup the current values:
+     for var in PK KEK db dbx; do efi-readvar -v $var -o $var-orig.esl; done
+EOF

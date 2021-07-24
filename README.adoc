@@ -1,7 +1,7 @@
 = UEFI Keys Generator
 :proj-name: efi-mkkeys
 :gh-name: jirutka/{proj-name}
-:version: 0.0.0
+:version: 0.1.0
 
 {proj-name} is a simple script to easily generate self-signed UEFI keys (PK, KEK, and db) for Secure Boot, including `.esl` and `.auth` files, with a single command.
 

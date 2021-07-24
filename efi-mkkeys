@@ -37,7 +37,7 @@ if ( set -o pipefail 2>/dev/null ); then
 fi
 
 PROGNAME='efi-mkkeys'
-VERSION='0.0.0'
+VERSION='0.1.0'
 
 help() {
 	sed -n '/^#---help---/,/^#---help---/p' "$0" | sed 's/^# \?//; 1d;$d;'

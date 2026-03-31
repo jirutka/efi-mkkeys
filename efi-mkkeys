@@ -84,9 +84,10 @@ if [ "$encrypt" = yes ]; then
 
 	# POSIX-compatible way to read password
 	stty -echo
-	trap 'stty echo' INT
+	trap 'stty echo; exit 130' INT
 	read -r passphrase
 	stty echo
+	trap - INT  # restore default handler
 	printf '\n'
 
 	[ "$passphrase" ] || die 'no pass phrase provided!'
